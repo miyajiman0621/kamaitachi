@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Schatten工房 ｜ 夜のシルエット</title>
+<title>あの夜のシルエットメーカー</title>
 <style>
   :root{
     --bg:#0b0d1a; --panel:#13162b; --panel2:#1b1f3a; --line:#2a2f52;
@@ -101,7 +101,7 @@
 </head>
 <body>
 <header>
-  <h1><span class="accent">Schatten</span>工房 ｜ 夜のシルエット</h1>
+  <h1><span class="accent">あの夜</span>のシルエットメーカー</h1>
   <p>写真を読み込むと人物を自動でシルエットにして、サウンドノベル風の一枚を作ります。写真は端末内だけで処理され、外部には送られません。</p>
 </header>
 
@@ -481,20 +481,24 @@ canvas.addEventListener("wheel",ev=>{
 function exportBlob(cb){ render(); canvas.toBlob(cb,"image/png"); }
 $("saveBtn").onclick=()=>exportBlob(blob=>{
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="schatten_"+Date.now()+".png"; a.click();
+  a.download="silhouette_"+Date.now()+".png"; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 });
 $("shareBtn").onclick=()=>exportBlob(async blob=>{
-  const file=new File([blob],"schatten.png",{type:"image/png"});
+  const file=new File([blob],"silhouette.png",{type:"image/png"});
   if(navigator.canShare&&navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file]}); }catch(e){}
   }else{
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-    a.download="schatten.png"; a.click();
+    a.download="silhouette.png"; a.click();
   }
 });
 
 $("edgeVal").textContent="標準";
 </script>
+
+<!-- Cloudflare Web Analytics -->
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "ここにトークンを貼り付け"}'></script>
+<!-- End Cloudflare Web Analytics -->
 </body>
 </html>

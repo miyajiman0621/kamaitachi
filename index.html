@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Schatten工房 ｜ 夜のシルエット</title>
+<style>
+  :root{
+    --bg:#0b0d1a; --panel:#13162b; --panel2:#1b1f3a; --line:#2a2f52;
+    --ink:#e8eaf6; --dim:#9aa0c8; --accent:#7b6cff; --accent-soft:#3a3470;
+    --danger:#c8546b; --ok:#4fd6a0;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    max-width:680px;margin:0 auto;padding-bottom:90px;
+  }
+  header{padding:14px 16px 10px;border-bottom:1px solid var(--line);}
+  header h1{margin:0;font-size:17px;letter-spacing:.06em;}
+  header h1 .accent{color:var(--accent);}
+  header p{margin:5px 0 0;font-size:11.5px;color:var(--dim);line-height:1.6;}
+
+  /* プレビュー：上部に固定 */
+  .stage{position:sticky;top:0;z-index:20;background:var(--bg);padding:10px 12px 8px;border-bottom:1px solid var(--line);}
+  .canvas-shell{
+    position:relative;width:100%;border:1px solid var(--line);border-radius:10px;
+    overflow:hidden;background:#05060d;box-shadow:0 8px 28px rgba(0,0,0,.45);
+  }
+  #preview{display:block;width:100%;height:auto;touch-action:none;}
+  .ph{
+    width:100%;aspect-ratio:16/9;border:1px dashed var(--line);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;color:var(--dim);
+    font-size:12.5px;text-align:center;padding:18px;line-height:1.8;
+  }
+  .stage .tip{font-size:11px;color:var(--dim);text-align:center;margin-top:6px;}
+
+  .body{padding:14px 16px;}
+
+  .bigrow{display:flex;gap:10px;margin-bottom:10px;}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
+    padding:13px 12px;background:var(--panel2);color:var(--ink);
+    border:1px solid var(--line);border-radius:10px;font-size:14px;
+    font-family:inherit;cursor:pointer;transition:.15s;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn.primary{background:var(--accent-soft);border-color:var(--accent);}
+  .btn:disabled{opacity:.45;}
+  input[type=file]{display:none;}
+
+  #status{font-size:12px;color:var(--dim);min-height:16px;margin:2px 0 8px;line-height:1.5;}
+  #status.busy{color:var(--accent);} #status.err{color:var(--danger);} #status.ok{color:var(--ok);}
+
+  /* 人物サムネ横スクロール */
+  .layers{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch;}
+  .layer{
+    flex:0 0 auto;min-width:96px;padding:8px 10px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:9px;font-size:12px;position:relative;
+  }
+  .layer.sel{border-color:var(--accent);background:#23284d;}
+  .layer .nm{display:block;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
+  .layer .del{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;
+    background:var(--panel);border:1px solid var(--line);color:var(--dim);cursor:pointer;font-size:13px;line-height:20px;}
+  .layer .del:active{color:var(--danger);}
+  .empty{font-size:12px;color:var(--dim);padding:8px 0;line-height:1.6;}
+
+  /* アコーディオン */
+  .acc{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;}
+  .acc > summary{
+    list-style:none;padding:13px 14px;font-size:13.5px;cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center;background:var(--panel);
+  }
+  .acc > summary::-webkit-details-marker{display:none;}
+  .acc > summary .mk{color:var(--accent);font-size:12px;}
+  .acc[open] > summary .mk{transform:rotate(90deg);}
+  .acc .inner{padding:6px 14px 14px;background:var(--panel);}
+
+  .ctl{margin:11px 0;}
+  .ctl label{font-size:12.5px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:6px;}
+  .ctl label .v{color:var(--ink);}
+  input[type=range]{width:100%;accent-color:var(--accent);height:26px;}
+  input[type=text]{width:100%;padding:11px 12px;background:var(--bg);border:1px solid var(--line);
+    border-radius:9px;color:var(--ink);font-family:inherit;font-size:14px;}
+  input[type=color]{width:46px;height:34px;padding:0;border:1px solid var(--line);border-radius:7px;background:none;}
+  .toggle{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--dim);margin:10px 0;cursor:pointer;}
+  .toggle input{width:18px;height:18px;accent-color:var(--accent);}
+  .row{display:flex;gap:9px;margin-top:10px;}
+  .row .btn{padding:11px;}
+
+  /* 下部固定の保存・共有バー */
+  .dock{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    max-width:680px;margin:0 auto;display:flex;gap:10px;
+    padding:12px 16px;background:rgba(11,13,26,.92);
+    backdrop-filter:blur(8px);border-top:1px solid var(--line);
+  }
+  .dock .btn{padding:14px;font-weight:700;}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="accent">Schatten</span>工房 ｜ 夜のシルエット</h1>
+  <p>写真を読み込むと人物を自動でシルエットにして、サウンドノベル風の一枚を作ります。写真は端末内だけで処理され、外部には送られません。</p>
+</header>
+
+<div class="stage">
+  <div class="canvas-shell" id="shell" style="display:none;"><canvas id="preview"></canvas></div>
+  <div class="ph" id="ph">下の「背景」で写真を1枚、<br>「人物を追加」で写したい人を読み込みます。</div>
+  <div class="tip" id="tip" style="display:none;">人物を1本指でドラッグ、2本指で拡大縮小できます。</div>
+</div>
+
+<div class="body">
+
+  <div class="bigrow">
+    <button class="btn" id="bgBtn">背景</button>
+    <button class="btn primary" id="personBtn">人物を追加</button>
+  </div>
+  <input type="file" id="bgFile" accept="image/*">
+  <input type="file" id="personFile" accept="image/*" multiple>
+  <div id="status"></div>
+
+  <div class="layers" id="layers">
+    <div class="empty">追加した人物がここに並びます。タップで選ぶと調整できます。</div>
+  </div>
+
+  <details class="acc">
+    <summary>選択中の人物を調整 <span class="mk">▸</span></summary>
+    <div class="inner">
+      <div class="ctl">
+        <label>大きさ <span class="v" id="scaleVal">100%</span></label>
+        <input type="range" id="scale" min="20" max="320" value="100" disabled>
+      </div>
+      <div class="ctl">
+        <label>濃さ <span class="v" id="palphaVal">85%</span></label>
+        <input type="range" id="palpha" min="20" max="100" value="85" disabled>
+      </div>
+      <div class="row">
+        <button class="btn" id="flipBtn" disabled>左右反転</button>
+        <button class="btn" id="frontBtn" disabled>最前面へ</button>
+      </div>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary>シルエットの色と輪郭 <span class="mk">▸</span></summary>
+    <div class="inner">
+      <div class="ctl" style="display:flex;align-items:center;gap:12px;">
+        <input type="color" id="silColor" value="#5b4fd6">
+        <span style="font-size:12.5px;color:var(--dim);">全員に共通</span>
+      </div>
+      <div class="ctl">
+        <label>輪郭のシャープさ <span class="v" id="edgeVal">標準</span></label>
+        <input type="range" id="edge" min="0" max="100" value="55">
+      </div>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary>夜トーン補正 <span class="mk">▸</span></summary>
+    <div class="inner">
+      <label class="toggle"><input type="checkbox" id="nightOn" checked>背景を夜の色味に沈める</label>
+      <div class="ctl">
+        <label>強さ <span class="v" id="nightVal">45%</span></label>
+        <input type="range" id="night" min="0" max="90" value="45">
+      </div>
+    </div>
+  </details>
+
+  <details class="acc" open>
+    <summary>セリフ字幕 <span class="mk">▸</span></summary>
+    <div class="inner">
+      <input type="text" id="caption" value="こんや、12じ、だれかがしぬ" placeholder="セリフを入力">
+      <label class="toggle"><input type="checkbox" id="capBracket" checked>「　」を自動で付ける</label>
+      <label class="toggle"><input type="checkbox" id="capOn" checked>字幕を表示する</label>
+      <div class="ctl">
+        <label>文字サイズ <span class="v" id="capSizeVal">標準</span></label>
+        <input type="range" id="capSize" min="20" max="80" value="42">
+      </div>
+      <div class="ctl">
+        <label>縦位置 <span class="v" id="capPosVal">中央</span></label>
+        <input type="range" id="capPos" min="10" max="90" value="42">
+      </div>
+    </div>
+  </details>
+
+</div>
+
+<div class="dock">
+  <button class="btn" id="saveBtn" disabled>保存</button>
+  <button class="btn primary" id="shareBtn" disabled style="display:none;">共有</button>
+</div>
+
+<script type="module">
+import { ImageSegmenter, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
+
+const $ = id => document.getElementById(id);
+const statusEl = $("status");
+const setStatus = (m,c) => { statusEl.textContent = m||""; statusEl.className = c||""; };
+const MODEL = "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite";
+const MAXSIDE = 1280;
+
+const state = {
+  bg:null, persons:[], selected:null,
+  silColor:"#5b4fd6", edge:55, night:true, nightAmt:45,
+  caption:"こんや、12じ、だれかがしぬ", capBracket:true, capOn:true, capSize:42, capPos:42,
+};
+let vision=null, segmenter=null, segDelegate="GPU", segInit=null, triedCPU=false, uid=0;
+
+async function getVision(){
+  if (!vision) vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm");
+  return vision;
+}
+async function createSeg(delegate){
+  const v = await getVision();
+  return ImageSegmenter.createFromOptions(v, {
+    baseOptions:{ modelAssetPath:MODEL, delegate },
+    runningMode:"IMAGE", outputCategoryMask:false, outputConfidenceMasks:true
+  });
+}
+async function ensureSegmenter(){
+  if (segmenter) return;
+  if (segInit){ await segInit; return; }
+  setStatus("切り抜きエンジンを準備中（初回のみ十数秒）…","busy");
+  segInit = (async()=>{
+    try { segmenter = await createSeg("GPU"); segDelegate="GPU"; }
+    catch(e){ segmenter = await createSeg("CPU"); segDelegate="CPU"; }
+  })();
+  await segInit;
+}
+
+function loadImage(file){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>res(img);
+    img.onerror=()=>rej(new Error("画像を読み込めませんでした"));
+    img.src=URL.createObjectURL(file);
+  });
+}
+// 長辺を縮小し canvas で返す（{el,w,h}）
+function normalize(img){
+  let w=img.naturalWidth, h=img.naturalHeight;
+  const s=Math.min(1, MAXSIDE/Math.max(w,h));
+  const cw=Math.round(w*s), ch=Math.round(h*s);
+  const c=document.createElement("canvas"); c.width=cw; c.height=ch;
+  c.getContext("2d").drawImage(img,0,0,cw,ch);
+  return { el:c, w:cw, h:ch };
+}
+
+// ---- 背景 ----
+$("bgBtn").onclick=()=>$("bgFile").click();
+$("bgFile").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  try{
+    const img=await loadImage(f);
+    state.bg=normalize(img);
+    $("shell").style.display=""; $("ph").style.display="none"; $("tip").style.display="";
+    $("saveBtn").disabled=false;
+    if (navigator.canShare){ $("shareBtn").style.display=""; $("shareBtn").disabled=false; }
+    render();
+  }catch(err){ setStatus(err.message,"err"); }
+};
+
+// ---- 人物追加 ----
+$("personBtn").onclick=()=>$("personFile").click();
+$("personFile").onchange=async e=>{
+  const files=[...e.target.files]; e.target.value=""; if(!files.length) return;
+  try{ await ensureSegmenter(); }
+  catch(err){ setStatus("切り抜きエンジンを読み込めませんでした。通信できる環境（http/https配信のページ）で開いてください。","err"); return; }
+  for (const f of files){
+    try{
+      setStatus(`「${f.name}」を解析中…`,"busy");
+      const img=await loadImage(f);
+      const norm=normalize(img);
+      const mask=await segmentPerson(norm.el, norm.w, norm.h);
+      addPerson(f.name, mask);
+    }catch(err){ setStatus(`「${f.name}」の解析に失敗：${err.message}`,"err"); }
+  }
+  setStatus("","ok");
+};
+
+function runSegment(src){
+  return new Promise((res,rej)=>{
+    try{ segmenter.segment(src, r=>{
+      try{
+        const m=r.confidenceMasks[0];
+        const arr=m.getAsFloat32Array();
+        const w=m.width, h=m.height;
+        const copy=new Float32Array(arr);   // closeで無効化される前に複製
+        r.close && r.close();
+        res({arr:copy, w, h});
+      }catch(e){ rej(e); }
+    }); }catch(e){ rej(e); }
+  });
+}
+async function segmentPerson(srcEl, sw, sh){
+  let { arr, w, h } = await runSegment(srcEl);
+  let mx=0; for (let i=0;i<arr.length;i++){ if(arr[i]>mx) mx=arr[i]; }
+  // GPUで空マスク（既知のモバイル不具合）→CPUで作り直して再試行
+  if (mx < 0.05 && segDelegate==="GPU" && !triedCPU){
+    triedCPU=true;
+    setStatus("この端末向けに切り抜き方式を切り替えています…","busy");
+    try{
+      const cpu=await createSeg("CPU");
+      segmenter.close && segmenter.close();
+      segmenter=cpu; segDelegate="CPU";
+      ({ arr, w, h } = await runSegment(srcEl));
+    }catch(e){}
+  }
+  // アルファマスク canvas
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const ctx=c.getContext("2d");
+  const id=ctx.createImageData(w,h); const d=id.data;
+  for (let i=0;i<w*h;i++){
+    d[i*4]=0; d[i*4+1]=0; d[i*4+2]=0;
+    d[i*4+3]=Math.round(Math.min(1,Math.max(0,arr[i]))*255);
+  }
+  ctx.putImageData(id,0,0);
+  return { canvas:c, w, h };
+}
+
+function addPerson(name, mask){
+  const id=++uid;
+  const n=state.persons.length;
+  const bgW=state.bg?state.bg.w:mask.w, bgH=state.bg?state.bg.h:mask.h;
+  const baseScale=(bgH*0.78)/mask.h;
+  const p={ id, name, natW:mask.w, natH:mask.h, maskCanvas:mask.canvas, colored:null,
+    cx:bgW*(0.30+0.18*(n%4)), cy:bgH*0.58, scale:baseScale, baseScale, flip:false, alpha:0.85 };
+  rebuildColored(p);
+  state.persons.push(p); state.selected=id;
+  renderLayers(); render();
+}
+
+function rebuildColored(p){
+  const w=p.natW,h=p.natH;
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const ctx=c.getContext("2d");
+  const src=p.maskCanvas.getContext("2d").getImageData(0,0,w,h).data;
+  const out=ctx.createImageData(w,h); const od=out.data;
+  const col=hexRgb(state.silColor);
+  const sharp=state.edge/100;
+  const band=0.02+(1-sharp)*0.30, th=0.5;
+  for (let i=0;i<w*h;i++){
+    const a01=src[i*4+3]/255;
+    let a = band<0.001 ? (a01>=th?1:0) : Math.min(1,Math.max(0,(a01-(th-band))/(band*2)));
+    od[i*4]=col.r; od[i*4+1]=col.g; od[i*4+2]=col.b; od[i*4+3]=Math.round(a*255);
+  }
+  ctx.putImageData(out,0,0); p.colored=c;
+}
+function hexRgb(hex){ const m=hex.replace("#",""); return {r:parseInt(m.substr(0,2),16),g:parseInt(m.substr(2,2),16),b:parseInt(m.substr(4,2),16)}; }
+
+// ---- レイヤー ----
+function renderLayers(){
+  const box=$("layers");
+  if(!state.persons.length){ box.innerHTML='<div class="empty">追加した人物がここに並びます。タップで選ぶと調整できます。</div>'; syncControls(); return; }
+  box.innerHTML="";
+  state.persons.forEach((p,i)=>{
+    const el=document.createElement("div");
+    el.className="layer"+(p.id===state.selected?" sel":"");
+    el.innerHTML=`<span class="nm">${i+1}. ${esc(p.name)}</span><span class="del">×</span>`;
+    el.querySelector(".nm").onclick=()=>{ state.selected=p.id; renderLayers(); };
+    el.querySelector(".del").onclick=ev=>{ ev.stopPropagation();
+      state.persons=state.persons.filter(x=>x.id!==p.id);
+      if(state.selected===p.id) state.selected=state.persons.length?state.persons.at(-1).id:null;
+      renderLayers(); render();
+    };
+    box.appendChild(el);
+  });
+  syncControls();
+}
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sel=()=>state.persons.find(p=>p.id===state.selected)||null;
+
+function syncControls(){
+  const p=sel(), on=!!p;
+  ["scale","palpha","flipBtn","frontBtn"].forEach(id=>$(id).disabled=!on);
+  if(p){
+    const r=Math.round(p.scale/p.baseScale*100);
+    $("scale").value=r; $("scaleVal").textContent=r+"%";
+    $("palpha").value=Math.round(p.alpha*100); $("palphaVal").textContent=Math.round(p.alpha*100)+"%";
+  }
+}
+
+// ---- コントロール ----
+$("scale").oninput=e=>{ const p=sel(); if(!p)return; p.scale=p.baseScale*(e.target.value/100); $("scaleVal").textContent=e.target.value+"%"; render(); };
+$("palpha").oninput=e=>{ const p=sel(); if(!p)return; p.alpha=e.target.value/100; $("palphaVal").textContent=e.target.value+"%"; render(); };
+$("flipBtn").onclick=()=>{ const p=sel(); if(!p)return; p.flip=!p.flip; render(); };
+$("frontBtn").onclick=()=>{ const p=sel(); if(!p)return; state.persons=state.persons.filter(x=>x.id!==p.id); state.persons.push(p); renderLayers(); render(); };
+$("silColor").oninput=e=>{ state.silColor=e.target.value; state.persons.forEach(rebuildColored); render(); };
+$("edge").oninput=e=>{ state.edge=+e.target.value; $("edgeVal").textContent=state.edge>66?"くっきり":state.edge<33?"やわらか":"標準"; state.persons.forEach(rebuildColored); render(); };
+$("nightOn").onchange=e=>{ state.night=e.target.checked; render(); };
+$("night").oninput=e=>{ state.nightAmt=+e.target.value; $("nightVal").textContent=state.nightAmt+"%"; render(); };
+$("caption").oninput=e=>{ state.caption=e.target.value; render(); };
+$("capBracket").onchange=e=>{ state.capBracket=e.target.checked; render(); };
+$("capOn").onchange=e=>{ state.capOn=e.target.checked; render(); };
+$("capSize").oninput=e=>{ state.capSize=+e.target.value; $("capSizeVal").textContent=state.capSize>60?"大":state.capSize<32?"小":"標準"; render(); };
+$("capPos").oninput=e=>{ state.capPos=+e.target.value; $("capPosVal").textContent=state.capPos<33?"上":state.capPos>66?"下":"中央"; render(); };
+
+// ---- 描画 ----
+const canvas=$("preview"), ctx=canvas.getContext("2d");
+function render(){
+  if(!state.bg) return;
+  const W=state.bg.w, H=state.bg.h;
+  canvas.width=W; canvas.height=H;
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(state.bg.el,0,0,W,H);
+  if(state.night && state.nightAmt>0){
+    const a=state.nightAmt/100;
+    ctx.save(); ctx.globalCompositeOperation="multiply"; ctx.fillStyle=`rgba(20,24,60,${a})`; ctx.fillRect(0,0,W,H); ctx.restore();
+    ctx.save(); ctx.fillStyle=`rgba(10,14,40,${a*0.35})`; ctx.fillRect(0,0,W,H); ctx.restore();
+  }
+  for(const p of state.persons){
+    const dw=p.natW*p.scale, dh=p.natH*p.scale;
+    ctx.save(); ctx.globalAlpha=p.alpha; ctx.translate(p.cx,p.cy);
+    if(p.flip) ctx.scale(-1,1);
+    ctx.drawImage(p.colored,-dw/2,-dh/2,dw,dh); ctx.restore();
+  }
+  if(state.capOn && state.caption.trim()) drawCaption(W,H);
+}
+function drawCaption(W,H){
+  let t=state.caption.trim(); if(state.capBracket) t="「"+t+"」";
+  const fp=H*(state.capSize/1000);
+  ctx.save();
+  ctx.font=`700 ${fp}px "Hiragino Maru Gothic ProN","BIZ UDPGothic","Yu Gothic UI",sans-serif`;
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.lineJoin="round";
+  const x=W/2, y=H*(state.capPos/100);
+  ctx.lineWidth=fp*0.22; ctx.strokeStyle="rgba(0,0,0,0.92)"; ctx.strokeText(t,x,y);
+  ctx.fillStyle="#fff"; ctx.fillText(t,x,y);
+  ctx.restore();
+}
+
+// ---- タッチ／マウス操作（移動・ピンチ・ホイール） ----
+function pt(ev,i=0){
+  const r=canvas.getBoundingClientRect();
+  const sx=canvas.width/r.width, sy=canvas.height/r.height;
+  const src=ev.touches?ev.touches[i]:ev;
+  return { x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy };
+}
+function hit(p){
+  for(let i=state.persons.length-1;i>=0;i--){
+    const q=state.persons[i], dw=q.natW*q.scale, dh=q.natH*q.scale;
+    if(p.x>=q.cx-dw/2&&p.x<=q.cx+dw/2&&p.y>=q.cy-dh/2&&p.y<=q.cy+dh/2) return q;
+  }
+  return null;
+}
+let drag=null, off={x:0,y:0}, pinch=null;
+function down(ev){
+  if(!state.bg) return;
+  if(ev.touches&&ev.touches.length===2){
+    const p=sel(); if(!p) return;
+    const a=pt(ev,0), b=pt(ev,1);
+    pinch={ p, d0:Math.hypot(a.x-b.x,a.y-b.y), s0:p.scale }; drag=null; ev.preventDefault(); return;
+  }
+  const p=pt(ev), h=hit(p);
+  if(h){ drag=h; state.selected=h.id; off={x:p.x-h.cx,y:p.y-h.cy}; renderLayers(); ev.preventDefault(); }
+}
+function move(ev){
+  if(pinch&&ev.touches&&ev.touches.length===2){
+    const a=pt(ev,0), b=pt(ev,1);
+    const d=Math.hypot(a.x-b.x,a.y-b.y);
+    pinch.p.scale=Math.max(pinch.p.baseScale*0.2, pinch.s0*(d/pinch.d0));
+    syncControls(); render(); ev.preventDefault(); return;
+  }
+  if(drag){ const p=pt(ev); drag.cx=p.x-off.x; drag.cy=p.y-off.y; render(); ev.preventDefault(); }
+}
+function up(){ drag=null; pinch=null; }
+canvas.addEventListener("mousedown",down);
+window.addEventListener("mousemove",move);
+window.addEventListener("mouseup",up);
+canvas.addEventListener("touchstart",down,{passive:false});
+canvas.addEventListener("touchmove",move,{passive:false});
+window.addEventListener("touchend",up);
+canvas.addEventListener("wheel",ev=>{
+  const p=sel(); if(!p)return;
+  p.scale=Math.max(p.baseScale*0.2, p.scale*(ev.deltaY<0?1.06:0.94));
+  syncControls(); render(); ev.preventDefault();
+},{passive:false});
+
+// ---- 保存・共有 ----
+function exportBlob(cb){ render(); canvas.toBlob(cb,"image/png"); }
+$("saveBtn").onclick=()=>exportBlob(blob=>{
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="schatten_"+Date.now()+".png"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+});
+$("shareBtn").onclick=()=>exportBlob(async blob=>{
+  const file=new File([blob],"schatten.png",{type:"image/png"});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file]}); }catch(e){}
+  }else{
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="schatten.png"; a.click();
+  }
+});
+
+$("edgeVal").textContent="標準";
+</script>
+</body>
+</html>
